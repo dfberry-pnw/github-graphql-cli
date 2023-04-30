@@ -87,4 +87,4 @@ node ./dist/index.js --org staticwebdev --verbose true --max -1 --prop repositor
   "svelte-basic",
   ".github"
 ]
-```# github-graphql-cli
+```
