@@ -87,8 +87,6 @@ node ./dist/index.js --org staticwebdev --verbose true --max -1 --prop repositor
   "svelte-basic",
   ".github"
 ]
-```# github-graphql-cli
+```
 
-## Dependencies
 
-* NPM package **Dotenv** - only used to pass PAT to environment from script. Package and PAT variable are not required to use CLI. Only provided as a convenience to add PAT to environment before running CLI. 
