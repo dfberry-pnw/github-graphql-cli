@@ -1,0 +1,70 @@
+name: Test
+
+on: 
+  workflow_dispatch:
+
+env:
+  FILENAMEANDPATH: config.json
+  TEMPDIR: scope
+  SECONDREPO: cqa-sandbox/cqa-dashboard-app
+  PAT: ${{ secrets.GITHUB_TOKEN }} # Used only for scope tool across GitHub repos
+jobs:
+  collectdata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      output1: ${{ steps.compare.outputs.diff }}
+    name: GitHub data scrape repos
+    steps:
+      - name: Set date in env
+        run: |
+          echo "MYDATE=$(date +"%FT%H%M")" >> $GITHUB_ENV  
+      - name: Before checkout
+        run: |
+          echo "before checkout - root of pipeline is"
+          pwd && ls -la
+      - name: Checkout cqa-sandbox/repo-scope-tool
+        uses: actions/checkout@master
+        with:
+          ref: 'main'
+          repository: 'cqa-sandbox/repo-scope-tool'
+          path: repo-scope-tool
+          token: ${{ secrets.DASHBOARD_REPORT_PAT }}
+      - name: After repo-scope-tool # output file name ./scope/repos.json
+        run: |
+          echo "After repo-scope-tool checkout - pwd is"
+          pwd && ls -la
+      - name: Checkout cqa-sandbox/cqa-dashboard-app 
+        uses: actions/checkout@master
+        with:
+            ref: 'main'
+            repository: 'cqa-sandbox/cqa-dashboard-app'
+            token: ${{ secrets.DASHBOARD_REPORT_PAT }}
+            path: cqa-dashboard-app 
+      - name: After cqa-dashboard-app # output file name ./scope/repos.json
+        run: |
+          echo "After cqa-dashboard-app checkout - pwd is"
+          pwd && ls -la            
+      - name: Install and Build # output file name ./scope/repos.json
+        run: |
+          pwd && ls -la
+          cd repo-scope-tool
+          npm install
+          npm run build --if-present
+          npm run test --if-present
+          npm run start:package:aggregate 
+          echo "After building config.json into root of scope tool - pwd is"
+          pwd && ls -la
+      - name: Previous config values are
+        run: | 
+          echo "Previous config values are"
+          cat ./cqa-dashboard-app/scope/config.json
+      - name: Compare files # Save to file and job output, print to console, if empty, no difference found
+        id: compare
+        run: | 
+          echo "Compare true/false only"
+          echo "COMPARE=$(cmp -s ./repo-scope-tool/config.json ./cqa-dashboard-app/scope/config.json)" >> $GITHUB_ENV  
+          echo "Files did/didn't $COMPARE '${{env.COMPARE}}'"
+          needToCommit=${{env.COMPARE}}
+          cmp ./repo-scope-tool/config.json ./cqa-dashboard-app/scope/config.json > ./repo-scope-tool/diff.txt
+          echo "$(cat ./repo-scope-tool/diff.txt)"
