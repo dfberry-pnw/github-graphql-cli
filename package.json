@@ -24,7 +24,10 @@
     "start:package:merge": "bash scripts/merge.sh",
     "start:package:aggregate": "npm run start:package:azuresamples && npm run start:package:staticwebdev && npm run start:package:merge",
     "test:action:staticwebdev": "bash scripts/sample-run-staticwebdev.sh",
-    "test:package:merge": "bash scripts/test-merge.sh"
+    "test:package:merge": "bash scripts/test-merge.sh",
+    "compare:azuresamples": "bash scripts/compare-files.sh ./dist/azure-samples.json ./data/azure-samples.json",
+    "compare:staticwebdev": "bash scripts/compare-files.sh ./dist/staticwebdev.json ./data/staticwebdev.json",
+  
   },
   "repository": {
     "type": "git",
