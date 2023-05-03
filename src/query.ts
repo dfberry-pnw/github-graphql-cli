@@ -1,7 +1,7 @@
 import { err, ok, Result } from 'neverthrow'
 
 import { reposQueryGraphQlSDK } from './sdkQuery'
-import { getNextCursor, shouldGetNextPage } from './utils/cursor'
+import { CursorState, getCursorState, IterationState } from './utils/cursor'
 import { waitfor } from './utils/utils'
 import { IOrgReposQuery } from './generated/graphql.sdk'
 
@@ -45,9 +45,15 @@ export async function reposCursorMgr(
     }
     log(`created variables`)
 
-    let hasNextPage = false
-    let currentData = 0
-    let currentPage = 0
+    const cursorState: CursorState = {
+      endCursor: undefined,
+      hasNextPage: true
+    }
+    const iterationState: IterationState = {
+      currentRepoCount: 0,
+      currentPageCount: 0
+    }
+
     const reposList: FinishedRepository[] = []
 
     do {
@@ -63,7 +69,7 @@ export async function reposCursorMgr(
       }
 
       log(`data returned`)
-      currentPage += 1
+      iterationState.currentPageCount += 1
 
       // Get repos
       if (data?.organization?.repositories?.edges) {
@@ -78,44 +84,36 @@ export async function reposCursorMgr(
 
         reposList.push(...reposExtendedDirty)
 
-        // Manage cursor for next page
-        variables.after = getNextCursor(
-          data?.organization?.repositories?.pageInfo?.endCursor
+        const cursorState: CursorState = getCursorState(
+          iterationState,
+          { max_data },
+          data,
+          log
         )
-        currentData += reposExtendedDirty.length
+
+        // Manage cursor for next page
+
+        variables.after = cursorState.endCursor
         if (variables.after === undefined) {
-          log(
-            `totalitems: ${currentData}, page: ${currentPage}, hasNextPage: ${hasNextPage}, cursor- === undefined`
-          )
-          break
-        }
-        if (max_data !== -1 && currentData > max_data) {
-          log(
-            `totalitems: ${currentData}, page: ${currentPage}, hasNextPage: ${hasNextPage}, max_data reached`
-          )
+          log(`no more data`)
           break
         }
 
-        // Collect enough data?
-        hasNextPage = shouldGetNextPage(
-          currentData,
-          max_data,
-          data.organization?.repositories.pageInfo.hasNextPage,
-          data?.organization?.repositories?.pageInfo?.endCursor
-        )
-        log(
-          `totalitems: ${currentData}, page: ${currentPage}, hasNextPage: ${hasNextPage}, cursor: ${variables.after}`
-        )
+        iterationState.currentRepoCount += reposExtendedDirty.length
+        if (max_data !== -1 && iterationState.currentRepoCount > max_data) {
+          log(`currentRepoCount is greater than max_data`)
+          break
+        }
 
         // rate limit - TBD: Fix this
-        if (hasNextPage && rate_limit_ms > 0) {
+        if (cursorState.hasNextPage && rate_limit_ms > 0) {
           log(`waiting ${rate_limit_ms}`)
           await waitfor(rate_limit_ms)
         }
       } else {
         log(`edges not returned`)
       }
-    } while (hasNextPage)
+    } while (cursorState.hasNextPage)
 
     // Sort by weight descending
     //reposList.sort((a, b) => b.weight - a.weight)
